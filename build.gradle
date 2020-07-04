@@ -42,8 +42,13 @@ sourceSets {
 }
 
 dependencies {
-    testImplementation 'junit:junit:4.12'
-    testImplementation 'org.assertj:assertj-core:3.8.0'
+    // JUnit 5, Mockito, AssertJ
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.6.2'
+    testImplementation 'org.junit.jupiter:junit-jupiter-params:5.6.2'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.6.2'
+    testImplementation 'org.mockito:mockito-core:3.3.3'
+    testImplementation 'org.mockito:mockito-junit-jupiter:3.3.3'
+    testImplementation 'org.assertj:assertj-core:3.16.1'
 
     //Jitpack imports
     implementation 'com.github.nwaldispuehl:java-lame:v3.98.4'
@@ -230,4 +235,8 @@ tasks.runtime.doLast {
     delete(fileTree('build/image/sdr-trunk-osx-x86_64-v' + version + '/lib').include { it.name ==~ /javafx-(web|media)-.*\.jar/ })
     delete(fileTree('build/image/sdr-trunk-windows-x86_64-v' + version + '/lib').include { it.name ==~ /javafx-(web|media)-.*\.jar/ })
     delete(fileTree('build/image/sdr-trunk-windows-x86_32-v' + version + '/lib').include { it.name ==~ /javafx-(web|media)-.*\.jar/ })
+}
+
+test {
+    useJUnitPlatform()
 }

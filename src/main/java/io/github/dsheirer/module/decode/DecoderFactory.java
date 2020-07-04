@@ -38,6 +38,12 @@ import io.github.dsheirer.module.decode.am.AMDecoder;
 import io.github.dsheirer.module.decode.am.DecodeConfigAM;
 import io.github.dsheirer.module.decode.config.AuxDecodeConfiguration;
 import io.github.dsheirer.module.decode.config.DecodeConfiguration;
+import io.github.dsheirer.module.decode.edacs48.DecodeConfigEDACS48;
+import io.github.dsheirer.module.decode.edacs48.EDACSDecoderModule;
+import io.github.dsheirer.module.decode.edacs48.EDACSDecoderState;
+import io.github.dsheirer.module.decode.edacs48.EDACSMessageFilter;
+import io.github.dsheirer.module.decode.edacs48.EDACSTrafficChannelManager;
+import io.github.dsheirer.module.decode.edacs48.WorkingChannelDecoder;
 import io.github.dsheirer.module.decode.fleetsync2.Fleetsync2Decoder;
 import io.github.dsheirer.module.decode.fleetsync2.Fleetsync2DecoderState;
 import io.github.dsheirer.module.decode.fleetsync2.FleetsyncMessageFilter;
@@ -120,7 +126,7 @@ public class DecoderFactory
     public static List<Module> getPrimaryModules(ChannelMapModel channelMapModel, Channel channel,
                                                  AliasModel aliasModel, UserPreferences userPreferences)
     {
-        List<Module> modules = new ArrayList<Module>();
+        List<Module> modules = new ArrayList<>();
 
         AliasList aliasList = aliasModel.getAliasList(channel.getAliasListName());
         modules.add(new AliasActionManager(aliasList));
@@ -156,11 +162,55 @@ public class DecoderFactory
             case P25_PHASE2:
                 processP25Phase2(channel, userPreferences, modules, aliasList);
                 break;
+            case EDACS48:
+                processEDACS48(modules, channelMapModel, channel, aliasList, (DecodeConfigEDACS48) decodeConfig);
+                break;
             default:
                 throw new IllegalArgumentException("Unknown decoder type [" + decodeConfig.getDecoderType().toString() + "]");
         }
 
         return modules;
+    }
+
+    private static void processEDACS48(List<Module> modules, ChannelMapModel channelMapModel,
+        Channel channel, AliasList aliasList, DecodeConfigEDACS48 decodeConfig) {
+
+        final var channelType = channel.getChannelType();
+        final var bitRate = 4_800;
+
+        if (channelType == ChannelType.STANDARD) {
+            final var sourceType = channel.getSourceConfiguration().getSourceType();
+            if (sourceType == SourceType.TUNER) {
+                final var channelSpec = decodeConfig.getChannelSpecification();
+                modules.add(new EDACSDecoderModule(channelSpec.getBandwidth(), bitRate));
+            }
+
+            final var channelMap = channelMapModel.getChannelMap(decodeConfig.getChannelMapName());
+
+            final var trafficChannelManager = new EDACSTrafficChannelManager(channel);
+            modules.add(trafficChannelManager);
+            modules.add(new EDACSDecoderState(channelType, channelMap, trafficChannelManager));
+        }
+
+        if (channelType == ChannelType.TRAFFIC) {
+            final var sourceType = channel.getSourceConfiguration().getSourceType();
+            if (sourceType == SourceType.TUNER) {
+                final var channelSpec = decodeConfig.getChannelSpecification();
+                modules.add(new WorkingChannelDecoder(channelSpec.getBandwidth(), bitRate));
+                modules.add(new FMDemodulatorModule(8000.0, DEMODULATED_AUDIO_SAMPLE_RATE));
+            }
+
+            modules.add(new EDACSDecoderState(channelType, null, null));
+
+            // TODO: Clean this up
+            final var callTimeoutMilliseconds = 30 * 1000;
+
+            // Set max segment audio sample length slightly above call timeout to
+            // not create a new segment if the processing chain finishes a bit after
+            // actual call timeout.
+            final var maxAudioSegmentLengthMillis = (callTimeoutMilliseconds + 5000);
+            modules.add(new AudioModule(aliasList, maxAudioSegmentLengthMillis));
+        }
     }
 
     private static void processP25Phase2(Channel channel, UserPreferences userPreferences, List<Module> modules, AliasList aliasList) {
@@ -172,9 +222,7 @@ public class DecoderFactory
         modules.add(new P25P2AudioModule(userPreferences, 1, aliasList));
     }
 
-    private static void processP25Phase1(Channel channel, UserPreferences userPreferences, List<Module> modules, AliasList aliasList, ChannelType channelType, DecodeConfigP25Phase1 decodeConfig) {
-        DecodeConfigP25Phase1 p25Config = decodeConfig;
-
+    private static void processP25Phase1(Channel channel, UserPreferences userPreferences, List<Module> modules, AliasList aliasList, ChannelType channelType, DecodeConfigP25Phase1 p25Config) {
         switch(p25Config.getModulation())
         {
             case C4FM:
@@ -221,8 +269,7 @@ public class DecoderFactory
         }
     }
 
-    private static void processMPT1327(ChannelMapModel channelMapModel, Channel channel, UserPreferences userPreferences, List<Module> modules, AliasList aliasList, ChannelType channelType, DecodeConfigMPT1327 decodeConfig) {
-        DecodeConfigMPT1327 mptConfig = decodeConfig;
+    private static void processMPT1327(ChannelMapModel channelMapModel, Channel channel, UserPreferences userPreferences, List<Module> modules, AliasList aliasList, ChannelType channelType, DecodeConfigMPT1327 mptConfig) {
         ChannelMap channelMap = channelMapModel.getChannelMap(mptConfig.getChannelMapName());
         Sync sync = mptConfig.getSync();
         modules.add(new MPT1327Decoder(sync));
@@ -419,6 +466,10 @@ public class DecoderFactory
             case PASSPORT:
                 filters.add(new PassportMessageFilter());
                 break;
+            case EDACS48:
+            case EDACS96:
+                filters.add(new EDACSMessageFilter());
+                break;
             default:
                 break;
         }
@@ -433,8 +484,6 @@ public class DecoderFactory
 
     public static DecodeConfiguration getDecodeConfiguration(DecoderType decoder)
     {
-        DecodeConfiguration retVal;
-
         switch(decoder)
         {
             case AM:
@@ -453,6 +502,8 @@ public class DecoderFactory
                 return new DecodeConfigP25Phase1();
             case P25_PHASE2:
                 return new DecodeConfigP25Phase2();
+            case EDACS48:
+                return new DecodeConfigEDACS48();
             default:
                 throw new IllegalArgumentException("DecodeConfigFactory - unknown decoder type [" + decoder.toString() + "]");
         }
@@ -467,53 +518,68 @@ public class DecoderFactory
         {
             switch(config.getDecoderType())
             {
-                case AM:
-                    DecodeConfigAM copyAM = new DecodeConfigAM();
-                    DecodeConfigAM origAM = (DecodeConfigAM)config;
-                    copyAM.setRecordAudio(origAM.getRecordAudio());
-                    return copyAM;
-                case LTR_NET:
-                    DecodeConfigLTRNet originalLTRNet = (DecodeConfigLTRNet)config;
-                    DecodeConfigLTRNet copyLTRNet = new DecodeConfigLTRNet();
-                    copyLTRNet.setMessageDirection(originalLTRNet.getMessageDirection());
-                    return copyLTRNet;
-                case LTR:
-                    DecodeConfigLTRStandard originalLTRStandard = (DecodeConfigLTRStandard)config;
-                    DecodeConfigLTRStandard copyLTRStandard = new DecodeConfigLTRStandard();
-                    copyLTRStandard.setMessageDirection(originalLTRStandard.getMessageDirection());
-                    return copyLTRStandard;
-                case MPT1327:
-                    DecodeConfigMPT1327 originalMPT = (DecodeConfigMPT1327)config;
-                    DecodeConfigMPT1327 copyMPT = new DecodeConfigMPT1327();
-                    copyMPT.setCallTimeoutSeconds(originalMPT.getCallTimeoutSeconds());
-                    copyMPT.setChannelMapName(originalMPT.getChannelMapName());
-                    copyMPT.setSync(originalMPT.getSync());
-                    copyMPT.setTrafficChannelPoolSize(originalMPT.getTrafficChannelPoolSize());
-                    return copyMPT;
-                case NBFM:
-                    DecodeConfigNBFM origNBFM = (DecodeConfigNBFM)config;
-                    DecodeConfigNBFM copyNBFM = new DecodeConfigNBFM();
-                    copyNBFM.setRecordAudio(origNBFM.getRecordAudio());
-                    copyNBFM.setBandwidth(origNBFM.getBandwidth());
-                    return copyNBFM;
-                case P25_PHASE1:
-                    DecodeConfigP25Phase1 originalP25 = (DecodeConfigP25Phase1)config;
-                    DecodeConfigP25Phase1 copyP25 = new DecodeConfigP25Phase1();
-                    copyP25.setIgnoreDataCalls(originalP25.getIgnoreDataCalls());
-                    copyP25.setModulation(originalP25.getModulation());
-                    copyP25.setTrafficChannelPoolSize(originalP25.getTrafficChannelPoolSize());
-                    return copyP25;
-                case P25_PHASE2:
-                    DecodeConfigP25Phase2 originalP25P2 = (DecodeConfigP25Phase2)config;
-                    DecodeConfigP25Phase2 copyP25P2 = new DecodeConfigP25Phase2();
-
-                    if(originalP25P2.getScrambleParameters() != null)
-                    {
-                        copyP25P2.setScrambleParameters(originalP25P2.getScrambleParameters().copy());
-                    }
-                    return copyP25P2;
+                case AM: {
+                    final var original = (DecodeConfigAM) config;
+                    final var copy = new DecodeConfigAM();
+                    copy.setRecordAudio(original.getRecordAudio());
+                    return copy;
+                }
+                case LTR_NET: {
+                    final var original = (DecodeConfigLTRNet) config;
+                    final var copy = new DecodeConfigLTRNet();
+                    copy.setMessageDirection(original.getMessageDirection());
+                    return copy;
+                }
+                case LTR: {
+                    final var original = (DecodeConfigLTRStandard) config;
+                    final var copy = new DecodeConfigLTRStandard();
+                    copy.setMessageDirection(original.getMessageDirection());
+                    return copy;
+                }
+                case MPT1327: {
+                    final var original = (DecodeConfigMPT1327) config;
+                    final var copy = new DecodeConfigMPT1327();
+                    copy.setCallTimeoutSeconds(original.getCallTimeoutSeconds());
+                    copy.setChannelMapName(original.getChannelMapName());
+                    copy.setSync(original.getSync());
+                    copy.setTrafficChannelPoolSize(original.getTrafficChannelPoolSize());
+                    return copy;
+                }
+                case NBFM: {
+                    final var original = (DecodeConfigNBFM) config;
+                    final var copy = new DecodeConfigNBFM();
+                    copy.setRecordAudio(original.getRecordAudio());
+                    copy.setBandwidth(original.getBandwidth());
+                    return copy;
+                }
                 case PASSPORT:
                     return new DecodeConfigPassport();
+                case P25_PHASE1: {
+                    final var original = (DecodeConfigP25Phase1) config;
+                    final var copy = new DecodeConfigP25Phase1();
+                    copy.setIgnoreDataCalls(original.getIgnoreDataCalls());
+                    copy.setModulation(original.getModulation());
+                    copy.setTrafficChannelPoolSize(original.getTrafficChannelPoolSize());
+                    return copy;
+                }
+                case P25_PHASE2: {
+                    final var original = (DecodeConfigP25Phase2) config;
+                    final var copy = new DecodeConfigP25Phase2();
+
+                    if (original.getScrambleParameters() != null) {
+                        copy.setScrambleParameters(original.getScrambleParameters().copy());
+                    }
+                    return copy;
+                }
+                case EDACS48: {
+                    final var original = (DecodeConfigEDACS48) config;
+                    final var copy = new DecodeConfigEDACS48();
+                    copy.setChannelMapName(original.getChannelMapName());
+                    // TODO
+                    //copy.setCallTimeoutSeconds(original.getCallTimeoutSeconds());
+                    //copy.setTrafficChannelPoolSize(original.getTrafficChannelPoolSize());
+                    return copy;
+                }
                 default:
                     throw new IllegalArgumentException("Unrecognized decoder configuration type:" + config.getDecoderType());
             }

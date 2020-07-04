@@ -187,7 +187,7 @@ public class AFSK1200Decoder implements Listener<ReusableFloatBuffer>
      * Averaging period defines the number of correlation values to average before producing the final correlation
      * value for each sample.
      */
-    public class Correlator
+    public static class Correlator
     {
         private FloatAveragingBuffer mAveragingBuffer;
         private float[] mReferenceSamples;

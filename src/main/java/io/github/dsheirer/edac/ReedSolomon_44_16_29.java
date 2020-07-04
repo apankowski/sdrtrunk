@@ -22,7 +22,7 @@
 
 package io.github.dsheirer.edac;
 
-public class ReedSolomon_44_16_29 extends BerlekempMassey_63
+public class ReedSolomon_44_16_29 extends BerlekampMassey_63
 {
     //Hamming distance = 29, so max correctable errors = 29 / 2 = 14
     private static final int MAXIMUM_CORRECTABLE_ERRORS = 14;

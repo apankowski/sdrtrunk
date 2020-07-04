@@ -27,147 +27,79 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Berlekemp Massey decoder for 63-bit primitive RS/BCH block codes
+ * Berlekamp-Massey decoder for primitive RS/BCH block codes
  */
-public class BerlekempMassey_63
+class BerlekampMassey
 {
-	public final static Logger mLog = LoggerFactory.getLogger( BerlekempMassey_63.class );
+    private static final Logger mLog = LoggerFactory.getLogger( BerlekampMassey.class );
 
-	/* Golay field size GF( 2 ** MM ) */
-	private static final int MM = 6;
+    /* Galois field size GF( 2 ** MM ) */
+    private final int MM;
 
-	/* Codeword Length: NN = 2 ** MM - 1 */
-	private static final int NN = 63;
-	
-	/* Hamming distance between codewords: NN - KK + 1 = 2 * TT + 1 */
-	private int KK;
+    /* Codeword Length: NN = 2 ** MM - 1 */
+    private final int NN;
 
-	/* Maximum number of errors that can be corrected */
-	int TT;
+    /* Hamming distance between codewords: NN - KK + 1 = 2 * TT + 1 */
+    private final int KK;
 
-	int[] alpha_to;
-	int[] index_of;
-	int[] gg;
-	
-	public BerlekempMassey_63( int tt )
+    /* Maximum number of errors that can be corrected */
+    private final int TT;
+
+    private final int[] alphaExp;
+    private final int[] alphaLog;
+
+    BerlekampMassey(int mm, int tt, int primitivePoly)
     {
-		TT = tt;
-		KK = NN - 2 * TT;
-		
-        alpha_to = new int[ NN + 1 ];
-        index_of = new int[ NN + 1 ];
-        gg       = new int[ NN - KK + 1 ];
+        MM = mm;
+        TT = tt;
+        NN = (1 << MM) - 1;
+        KK = NN - 2 * TT;
 
-        /* P25 generator polynomial */
-        int generator_polinomial[] = { 1, 1, 0, 0, 0, 0, 1 };
+        alphaExp = new int[ NN + 1 ];
+        alphaLog = new int[ NN + 1 ];
 
-        generate_gf( generator_polinomial );
-
-        gen_poly();
-    }
-
-	/**
-	 * Generates the Golay Field.
-	 * 
-	 * Generates a GF( 2**mm ) from the irreducible polynomial 
-	 * p(X) in pp[0]..pp[mm]
-	 * 
-	 * Lookup tables:  
-	 * 		index_of[] = polynomial form   
-	 * 		alpha_to[] = contains j=alpha**i;
-	 * 
-	 * Polynomial form -> Index form  index_of[j=alpha**i] = i
-	 * 
-	 * alpha_to = 2 is the primitive element of GF( 2**mm )
-	 * 
-	 * @param generator_polynomial
-	 */
-	private void generate_gf( int[] generator_polynomial )
-	{
-		int i;
-		int mask = 1;
-
-        alpha_to[ MM ] = 0;
-        
-        for( i = 0; i < MM; i++ ) 
-        {
-            alpha_to[ i ] = mask;
-            index_of[ alpha_to[ i ] ] = i;
-            
-            if( generator_polynomial[ i ] != 0 )
-            {
-                alpha_to[ MM ] ^= mask;
-            }
-            
-            mask <<= 1;
-        }
-        
-        index_of[ alpha_to[ MM ] ] = MM;
-        
-        mask >>= 1;
-            
-        for ( i = MM + 1; i < NN; i++ ) 
-        {
-            if( alpha_to[ i - 1 ] >= mask )
-            {
-                alpha_to[ i ] = alpha_to[ MM ] ^ ( ( alpha_to[ i - 1 ] ^ mask ) << 1 );
-            }
-            else
-            {
-                alpha_to[ i ] = alpha_to[ i - 1 ] << 1;
-            }
-            
-            index_of[ alpha_to[ i ] ] = i;
-        }
-        
-        index_of[ 0 ] = -1;
+        generateGaloisField(primitivePoly);
     }
 
     /**
-     * Generates the polynomial for a TT-error correction code.
-     * 
-     * Length NN = ( 2 ** MM -1 ) Reed Solomon code from the product of 
-     * (X+alpha**i), i=1..2*tt 
+     * Generates the Galois Field.
+     * <p>
+     * Generates a GF( 2**mm ) from the irreducible polynomial
+     * p(X) in pp[0]..pp[mm]
+     * <p>
+     * Lookup tables:
+     * index_of[] = polynomial form
+     * alpha_to[] = contains j=alpha**i;
+     * <p>
+     * Polynomial form -> Index form  index_of[j=alpha**i] = i
+     * <p>
+     * alpha_to = 2 is the primitive element of GF( 2**mm )
+     *
+     * @param primitivePoly
      */
-	private void gen_poly()
-    {
-        int i, j;
+    private void generateGaloisField(int primitivePoly) {
+        final var largestPowerInPrimitivePoly = Integer.highestOneBit(primitivePoly);
+        if (largestPowerInPrimitivePoly != 1 << MM) {
+            throw new IllegalArgumentException("Generator polynomial of Galois field(2^" + MM + ") " +
+                    "must be of degree " + MM);
+        }
 
-        gg[ 0 ] = 2; /* primitive element alpha = 2  for GF(2**mm)  */
-        gg[ 1 ] = 1; /* g(x) = (X+alpha) initially */
-        for( i = 2; i <= NN - KK; i++ ) 
-        {
-            gg[ i ] = 1;
-            
-            for( j = i - 1; j > 0; j-- )
-            {
-                if( gg[ j ] != 0 )
-                {
-                    gg[ j ] = gg[ j - 1 ] ^ alpha_to[ ( index_of[ gg[ j ] ] + i ) % NN ];
-                }
-                else
-                {
-                    gg[ j ] = gg[ j - 1 ];
-                }
-            }
-            
-            /* gg[0] can never be zero */
-            gg[ 0 ] = alpha_to[ ( index_of[ gg[ 0 ] ] + i ) % NN ];
+        for (var i = 0; i < NN; i++) {
+            var residuePoly = i == 0 ? 1 : alphaExp[i - 1] << 1;
+            if (residuePoly >= largestPowerInPrimitivePoly) residuePoly ^= primitivePoly;
+            alphaExp[i] = residuePoly;
+            alphaLog[residuePoly] = i;
         }
-        
-        /* convert gg[] to index form for quicker encoding */
-        for( i = 0; i <= NN - KK; i++ )
-        {
-            gg[ i ] = index_of[ gg[ i ] ];
-        }
+
+        alphaLog[0] = -1;
     }
 
-	/**
-	 * Decodes 
-	 * @param input
-	 * @param output
-	 * @return
-	 */
+    /**
+     * Decodes
+     * @param input
+     * @param output
+     * @return
+     */
     /* assume we have received bits grouped into mm-bit symbols in recd[i],
     i=0..(nn-1),  and recd[i] is polynomial form.
     We first compute the 2*tt syndromes by substituting alpha**i into rec(X) and
@@ -188,52 +120,52 @@ public class BerlekempMassey_63
     can be returned as error flags to the calling routine if desired.   */
     public boolean decode( final int[] input, int[] output ) //input, output
     {
-    	int u, q;
-        int[][] elp = new int[ NN - KK + 2 ][ NN - KK ];
-        int[] d = new int[ NN - KK + 2 ]; 
-        int[] l = new int[ NN - KK + 2 ]; 
+        int u, q;
+        int[][] elp = new int[ NN - KK + 2 ][ NN - KK];
+        int[] d = new int[ NN - KK + 2 ];
+        int[] l = new int[ NN - KK + 2 ];
         int[] u_lu = new int[ NN - KK + 2 ];
         int[] s = new int[ NN - KK + 1 ];
-        int count = 0; 
+        int count = 0;
         boolean syn_error = false;
-        int[] root = new int[ TT ];
-        int[] loc = new int[ TT ];
+        int[] root = new int[TT];
+        int[] loc = new int[TT];
         int[] z = new int[ TT + 1 ];
-        int[] err = new int[ NN ];
+        int[] err = new int[NN];
         int[] reg = new int[ TT + 1 ];
 
         boolean irrecoverable_error = false;
 
-    	/* put recd[i] into index form (ie as powers of alpha) */
-        for( int i = 0; i < NN; i++ )
+        /* put recd[i] into index form (ie as powers of alpha) */
+        for(int i = 0; i < NN; i++ )
         {
-            output[ i ] = index_of[ input[ i ] ];
+            output[ i ] = alphaLog[ input[ i ] ];
         }
-        
+
         /* first form the syndromes */
-        for( int i = 1; i <= NN - KK; i++ ) 
+        for(int i = 1; i <= NN - KK; i++ )
         {
             s[ i ] = 0;
-            
-            for( int j = 0; j < NN; j++ )
+
+            for(int j = 0; j < NN; j++ )
             {
                 if( output[ j ] != -1 )
                 {
-                	/* recd[j] in index form */
-                	s[ i ] ^= alpha_to[ ( output[ j ] + i * j ) % NN ];
+                    /* recd[j] in index form */
+                    s[ i ] ^= alphaExp[ ( output[ j ] + i * j ) % NN];
                 }
             }
-            
+
             /* convert syndrome from polynomial form to index form  */
             if( s[ i ] != 0 )
             {
-            	/* set flag if non-zero syndrome => error */            	
-                syn_error = true; 
+                /* set flag if non-zero syndrome => error */
+                syn_error = true;
             }
-            
-            s[ i ] = index_of[ s[ i ] ];
+
+            s[ i ] = alphaLog[ s[ i ] ];
         }
-        
+
         if( syn_error ) /* if errors, try and correct */
         {
             /* compute the error location polynomial via the Berlekamp iterative algorithm,
@@ -243,63 +175,63 @@ public class BerlekempMassey_63
              degree of the elp at that step, and u_l[u] is the difference between the
              step number and the degree of the elp.
              */
-        	
+
             /* initialise table entries */
             d[ 0 ] = 0; /* index form */
             d[ 1 ] = s[ 1 ]; /* index form */
             elp[ 0 ][ 0 ] = 0; /* index form */
             elp[ 1 ][ 0 ] = 1; /* polynomial form */
-            
-            for( int i = 1; i < NN - KK; i++ ) 
+
+            for(int i = 1; i < NN - KK; i++ )
             {
                 elp[ 0 ][ i ] = -1; /* index form */
                 elp[ 1 ][ i ] = 0; /* polynomial form */
             }
-            
+
             l[ 0 ] = 0;
             l[ 1 ] = 0;
             u_lu[ 0 ] = -1;
             u_lu[ 1 ] = 0;
             u = 0;
 
-            do 
+            do
             {
                 u++;
-                
-                if( d[ u ] == -1 ) 
+
+                if( d[ u ] == -1 )
                 {
                     l[ u + 1 ] = l[ u ];
-                    
-                    for( int i = 0; i <= l[ u ]; i++ ) 
+
+                    for( int i = 0; i <= l[ u ]; i++ )
                     {
                         elp[ u + 1 ][ i ] = elp[ u ][ i ];
-                        elp[ u ][ i ] = index_of[ elp[ u ][ i ] ];
+                        elp[ u ][ i ] = alphaLog[ elp[ u ][ i ] ];
                     }
-                } 
+                }
                 else
-                /* search for words with greatest u_lu[q] for which d[q]!=0 */
+                    /* search for words with greatest u_lu[q] for which d[q]!=0 */
                 {
                     q = u - 1;
-                    
+
                     while( ( d[ q ] == -1 ) && ( q > 0 ) )
                     {
                         q--;
                     }
-                    
+
                     /* have found first non-zero d[q]  */
-                    if( q > 0 ) 
+                    if( q > 0 )
                     {
-                    	int j = q;
-                    	
-                        do 
+                        int j = q;
+
+                        do
                         {
                             j--;
-                            
+
                             if( ( d[ j ] != -1 ) && ( u_lu[ q ] < u_lu[ j ] ) )
                             {
                                 q = j;
                             }
-                        } 
+                        }
                         while( j > 0 );
                     };
 
@@ -308,35 +240,35 @@ public class BerlekempMassey_63
                     l[u + 1] = FastMath.max(l[u], l[q] + u - q);
 
                     /* form new elp(x) */
-                    for( int i = 0; i < NN - KK; i++ )
+                    for(int i = 0; i < NN - KK; i++ )
                     {
                         elp[ u + 1 ][ i ] = 0;
-                    }                    	
-                    
+                    }
+
                     for( int i = 0; i <= l[q]; i++ )
                     {
                         if( elp[ q ][ i ] != -1 )
                         {
-                            elp[ u + 1 ][ i + u - q ] = 
-                        		alpha_to[ ( d[ u ] + NN - d[ q ]
-                                    + elp[ q ][ i ]) % NN ];
+                            elp[ u + 1 ][ i + u - q ] =
+                                    alphaExp[ ( d[ u ] + NN - d[ q ]
+                                            + elp[ q ][ i ]) % NN];
                         }
                     }
-                    for( int i = 0; i <= l[u]; i++ ) 
+                    for( int i = 0; i <= l[u]; i++ )
                     {
                         elp[ u + 1 ][ i ] ^= elp[ u ][ i ];
-                        elp[ u ][ i ] = index_of[ elp[ u ][ i ] ]; /*convert old elp value to index*/
+                        elp[ u ][ i ] = alphaLog[ elp[ u ][ i ] ]; /*convert old elp value to index*/
                     }
                 }
-                
+
                 u_lu[ u + 1 ] = u - l[ u + 1 ];
 
                 /* form (u+1)th discrepancy */
-                if( u < NN - KK ) /* no discrepancy computed on last iteration */
+                if( u < NN - KK) /* no discrepancy computed on last iteration */
                 {
                     if ( s[ u + 1 ] != -1 )
                     {
-                        d[ u + 1 ] = alpha_to[ s[ u + 1 ] ];
+                        d[ u + 1 ] = alphaExp[ s[ u + 1 ] ];
                     }
                     else
                     {
@@ -346,44 +278,44 @@ public class BerlekempMassey_63
                     {
                         if( ( s[ u + 1 - i ] != -1 ) && ( elp[ u + 1 ][ i]  != 0 ) )
                         {
-                            d[ u + 1 ] ^= alpha_to[ ( s[ u + 1 - i ]
-                                    + index_of[ elp[ u + 1 ][ i ] ] ) % NN ];
+                            d[ u + 1 ] ^= alphaExp[ ( s[ u + 1 - i ]
+                                    + alphaLog[ elp[ u + 1 ][ i ] ] ) % NN];
                         }
                     }
-                    
-                    d[ u + 1 ] = index_of[ d[ u + 1 ] ]; /* put d[u+1] into index form */
+
+                    d[ u + 1 ] = alphaLog[ d[ u + 1 ] ]; /* put d[u+1] into index form */
                 }
-            } 
-            while( ( u < NN - KK ) && ( l[ u + 1 ] <= TT) );
+            }
+            while( ( u < NN - KK) && ( l[ u + 1 ] <= TT) );
 
             u++;
-            
-            if( l[ u ] <= TT ) /* can correct error */
+
+            if( l[ u ] <= TT) /* can correct error */
             {
                 /* put elp into index form */
-            	for( int i = 0; i <= l[u]; i++ )
-            	{
-                	elp[ u ][ i ] = index_of[ elp[ u ][ i ] ];
-            	}
+                for( int i = 0; i <= l[u]; i++ )
+                {
+                    elp[ u ][ i ] = alphaLog[ elp[ u ][ i ] ];
+                }
 
                 /* find roots of the error location polynomial */
                 if (l[u] >= 0) System.arraycopy(elp[u], 1, reg, 1, l[u]);
-            	
+
                 count = 0;
-                
-                for( int i = 1; i <= NN; i++ ) 
+
+                for(int i = 1; i <= NN; i++ )
                 {
                     q = 1;
-                    
+
                     for( int j = 1; j <= l[u]; j++ )
                     {
-                        if( reg[ j ] != -1 ) 
+                        if( reg[ j ] != -1 )
                         {
                             reg[ j ] = ( reg[ j ] + j ) % NN;
-                            q ^= alpha_to[ reg[ j ] ];
+                            q ^= alphaExp[ reg[ j ] ];
                         };
                     }
-                    
+
                     if( q == 0 ) /* store root and error location number indices */
                     {
                         root[ count ] = i;
@@ -395,125 +327,125 @@ public class BerlekempMassey_63
                 if( count == l[ u ] ) /* no. roots = degree of elp hence <= tt errors */
                 {
                     /* form polynomial z(x) */
-                	for( int i = 1; i <= l[ u ]; i++ ) /* Z[0] = 1 always - do not need */
+                    for( int i = 1; i <= l[ u ]; i++ ) /* Z[0] = 1 always - do not need */
                     {
                         if( ( s[ i ] != -1 ) && ( elp[ u ][ i ] != -1 ) )
                         {
-                            z[ i ] = alpha_to[ s[ i ] ] ^ alpha_to[ elp[ u ][ i ] ];
+                            z[ i ] = alphaExp[ s[ i ] ] ^ alphaExp[ elp[ u ][ i ] ];
                         }
                         else if( ( s[ i ] != -1 ) && ( elp[ u ][ i ] == -1 ) )
                         {
-                            z[ i ] = alpha_to[ s[ i ] ];
+                            z[ i ] = alphaExp[ s[ i ] ];
                         }
                         else if( ( s[ i ] == -1 ) && ( elp[ u ][ i ] != -1 ) )
                         {
-                            z[ i ] = alpha_to[ elp[ u ][ i ] ];
+                            z[ i ] = alphaExp[ elp[ u ][ i ] ];
                         }
                         else
                         {
                             z[ i ] = 0;
                         }
-                        
+
                         for( int j = 1; j < i; j++ )
                         {
                             if( ( s[ j ] != -1 ) && ( elp[ u ][ i - j ] != -1 ) )
                             {
-                                z[ i ] ^= alpha_to[ ( elp[ u ][ i - j ] + s[ j ] ) % NN ];
+                                z[ i ] ^= alphaExp[ ( elp[ u ][ i - j ] + s[ j ] ) % NN];
                             }
                         }
-                        
-                        z[ i ] = index_of[ z[ i ] ]; /* put into index form */
+
+                        z[ i ] = alphaLog[ z[ i ] ]; /* put into index form */
                     };
 
                     /* evaluate errors at locations given by error location numbers loc[i] */
-                    for( int i = 0; i < NN; i++ ) 
+                    for(int i = 0; i < NN; i++ )
                     {
                         err[ i ] = 0;
-                        
+
                         if( output[ i ] != -1 ) /* convert recd[] to polynomial form */
                         {
-                            output[ i ] = alpha_to[ output[ i ] ];
+                            output[ i ] = alphaExp[ output[ i ] ];
                         }
                         else
                         {
                             output[ i ] = 0;
                         }
                     }
-                    
+
                     for( int i = 0; i < l[ u ]; i++ ) /* compute numerator of error term first */
                     {
                         err[ loc[ i ] ] = 1; /* accounts for z[0] */
-                        
+
                         for( int j = 1; j <= l[ u ]; j++ )
                         {
                             if( z[ j ] != -1 )
                             {
-                                err[ loc[ i ] ] ^= alpha_to[ ( z[ j ] + j * root[ i ] ) % NN ];
+                                err[ loc[ i ] ] ^= alphaExp[ ( z[ j ] + j * root[ i ] ) % NN];
                             }
                         }
-                        
-                        if( err[ loc[ i ] ] != 0 ) 
+
+                        if( err[ loc[ i ] ] != 0 )
                         {
-                            err[ loc[ i ] ] = index_of[ err[ loc[ i ] ] ];
-                            
+                            err[ loc[ i ] ] = alphaLog[ err[ loc[ i ] ] ];
+
                             q = 0; /* form denominator of error term */
-                            
+
                             for (int j = 0; j < l[u]; j++)
                             {
                                 if (j != i)
                                 {
-                                    q += index_of[1 ^ alpha_to[(loc[j] + root[i]) % NN]];
+                                    q += alphaLog[1 ^ alphaExp[(loc[j] + root[i]) % NN]];
                                 }
                             }
-                            
+
                             q = q % NN;
-                            err[loc[i]] = alpha_to[(err[loc[i]] - q + NN) % NN];
+                            err[loc[i]] = alphaExp[(err[loc[i]] - q + NN) % NN];
                             output[loc[i]] ^= err[loc[i]]; /*recd[i] must be in polynomial form */
                         }
                     }
-                } 
-                else 
+                }
+                else
                 {
                     /* no. roots != degree of elp => >tt errors and cannot solve */
                     irrecoverable_error = true;
                 }
 
-            } 
-            else 
+            }
+            else
             {
                 /* elp has degree >tt hence cannot solve */
                 irrecoverable_error = true;
             }
-        } 
-        else 
+        }
+        else
         {
             /* no non-zero syndromes => no errors: output received codeword */
-        	for (int i = 0; i < NN; i++)
-        	{
+            for (int i = 0; i < NN; i++)
+            {
                 if (output[i] != -1) /* convert recd[] to polynomial form */
                 {
-                    output[i] = alpha_to[output[i]];
+                    output[i] = alphaExp[output[i]];
                 }
                 else
                 {
                     output[i] = 0;
                 }
-        	}
+            }
         }
 
-        if( irrecoverable_error ) 
+        if( irrecoverable_error )
         {
-        	for (int i = 0; i < NN; i++) /* could return error flag if desired */
-        	{
+            for (int i = 0; i < NN; i++) /* could return error flag if desired */
+            {
                 if (output[i] != -1) /* convert recd[] to polynomial form */
                 {
-                    output[i] = alpha_to[output[i]];
+                    output[i] = alphaExp[output[i]];
                 }
                 else
                 {
                     output[i] = 0; /* just output received codeword as is */
                 }
-        	}
+            }
         }
 
         return irrecoverable_error;

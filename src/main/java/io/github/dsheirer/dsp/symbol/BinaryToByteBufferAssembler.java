@@ -53,6 +53,13 @@ public class BinaryToByteBufferAssembler implements IBinarySymbolProcessor, IReu
         getNextBuffer();
     }
 
+    public void reset()
+    {
+        mBufferPointer = 0;
+        mCurrentByte = 0;
+        mBitCount = 0;
+    }
+
     /**
      * Broadcasts the current buffer to the registered listener and creates a new buffer, resetting
      * the buffer pointer to zero so that new dibits can be loaded.

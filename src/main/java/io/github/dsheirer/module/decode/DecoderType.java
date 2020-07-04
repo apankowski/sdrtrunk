@@ -39,6 +39,8 @@ public enum DecoderType
     PASSPORT("Passport", "Passport", Protocol.PASSPORT),
     P25_PHASE1("P25 Phase 1", "P25-1", Protocol.APCO25),
     P25_PHASE2("P25 Phase 2", "P25-2", Protocol.APCO25_PHASE2),
+    EDACS48("EDACS Narrowband", "EDACS48", Protocol.EDACS),
+    EDACS96("EDACS Wideband", "EDACS96", Protocol.EDACS),
 
     //Auxiliary Decoders
     FLEETSYNC2("Fleetsync II", "Fleetsync2", Protocol.FLEETSYNC),
@@ -60,15 +62,18 @@ public enum DecoderType
     /**
      * Primary decoders that operate on I/Q sample streams
      */
-    public static EnumSet<DecoderType> PRIMARY_DECODERS =
-        EnumSet.of(DecoderType.AM,
+    public static EnumSet<DecoderType> PRIMARY_DECODERS = EnumSet.of(
+        DecoderType.AM,
         DecoderType.LTR_NET,
         DecoderType.LTR,
         DecoderType.MPT1327,
         DecoderType.NBFM,
         DecoderType.P25_PHASE1,
         DecoderType.P25_PHASE2,
-        DecoderType.PASSPORT);
+        DecoderType.PASSPORT,
+        DecoderType.EDACS48,
+        DecoderType.EDACS96
+    );
 
     /**
      * Auxiliary decoders that operate on in-band signalling in the decoded audio channel
@@ -82,10 +87,13 @@ public enum DecoderType
     /**
      * Decoders that produce a (recordable) bitstream
      */
-    public static final EnumSet<DecoderType> BITSTREAM_DECODERS =
-        EnumSet.of(DecoderType.MPT1327,
-            DecoderType.P25_PHASE1,
-            DecoderType.P25_PHASE2);
+    public static final EnumSet<DecoderType> BITSTREAM_DECODERS = EnumSet.of(
+        DecoderType.MPT1327,
+        DecoderType.P25_PHASE1,
+        DecoderType.P25_PHASE2,
+        DecoderType.EDACS48,
+        DecoderType.EDACS96
+    );
 
     /**
      * Decoders that produce (recordable) MBE audio codec frames

@@ -28,49 +28,41 @@ import io.github.dsheirer.module.decode.config.DecodeConfiguration;
 import io.github.dsheirer.module.decode.config.WithCallTimeout;
 import io.github.dsheirer.source.tuner.channel.ChannelSpecification;
 
-public class DecodeConfigMPT1327 extends DecodeConfiguration implements WithCallTimeout
-{
+public class DecodeConfigMPT1327 extends DecodeConfiguration implements WithCallTimeout {
     private String mChannelMapName;
     private Sync mSync = Sync.NORMAL;
 
     private int mCallTimeoutSeconds = DEFAULT_CALL_TIMEOUT_DELAY_SECONDS;
     private int mTrafficChannelPoolSize = TRAFFIC_CHANNEL_LIMIT_DEFAULT;
 
-    public DecodeConfigMPT1327()
-    {
+    public DecodeConfigMPT1327() {
     }
 
     @JacksonXmlProperty(isAttribute = true, localName = "type", namespace = "http://www.w3.org/2001/XMLSchema-instance")
-    public DecoderType getDecoderType()
-    {
+    public DecoderType getDecoderType() {
         return DecoderType.MPT1327;
     }
 
     @JacksonXmlProperty(isAttribute = false, localName = "channelMapName")
-    public String getChannelMapName()
-    {
+    public String getChannelMapName() {
         return mChannelMapName;
     }
 
-    public void setChannelMapName(String name)
-    {
+    public void setChannelMapName(String name) {
         mChannelMapName = name;
     }
 
     @JacksonXmlProperty(isAttribute = true, localName = "sync")
-    public Sync getSync()
-    {
+    public Sync getSync() {
         return mSync;
     }
 
-    public void setSync(Sync sync)
-    {
+    public void setSync(Sync sync) {
         mSync = sync;
     }
 
     @JacksonXmlProperty(isAttribute = true, localName = "call_timeout")
-    public int getCallTimeoutSeconds()
-    {
+    public int getCallTimeoutSeconds() {
         return mCallTimeoutSeconds;
     }
 
@@ -79,34 +71,28 @@ public class DecodeConfigMPT1327 extends DecodeConfiguration implements WithCall
      *
      * @param timeout
      */
-    public void setCallTimeoutSeconds(int timeout)
-    {
-        if(CALL_TIMEOUT_MINIMUM <= timeout && timeout <= CALL_TIMEOUT_MAXIMUM)
-        {
+    public void setCallTimeoutSeconds(int timeout) {
+        if (CALL_TIMEOUT_MINIMUM <= timeout && timeout <= CALL_TIMEOUT_MAXIMUM) {
             mCallTimeoutSeconds = timeout;
-        }
-        else
-        {
+        } else {
             mCallTimeoutSeconds = DEFAULT_CALL_TIMEOUT_DELAY_SECONDS;
         }
     }
 
     @JacksonXmlProperty(isAttribute = true, localName = "traffic_channel_pool_size")
-    public int getTrafficChannelPoolSize()
-    {
+    public int getTrafficChannelPoolSize() {
         return mTrafficChannelPoolSize;
     }
 
     /**
      * Sets the traffic channel pool size which is the maximum number of
      * simultaneous traffic channels that can be allocated.
-     *
+     * <p>
      * This limits the maximum calls so that busy systems won't cause more
      * traffic channels to be allocated than the decoder/software/host computer
      * can support.
      */
-    public void setTrafficChannelPoolSize(int size)
-    {
+    public void setTrafficChannelPoolSize(int size) {
         mTrafficChannelPoolSize = size;
     }
 
@@ -115,8 +101,7 @@ public class DecodeConfigMPT1327 extends DecodeConfiguration implements WithCall
      */
     @JsonIgnore
     @Override
-    public ChannelSpecification getChannelSpecification()
-    {
+    public ChannelSpecification getChannelSpecification() {
         return new ChannelSpecification(25000.0,
             12500, 6000.0, 7000.0);
     }

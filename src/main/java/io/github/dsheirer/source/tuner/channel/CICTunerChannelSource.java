@@ -26,6 +26,7 @@ import io.github.dsheirer.sample.buffer.ReusableComplexBuffer;
 import io.github.dsheirer.sample.buffer.ReusableComplexBufferQueue;
 import io.github.dsheirer.sample.complex.Complex;
 import io.github.dsheirer.source.SourceEvent;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -70,6 +71,7 @@ public class CICTunerChannelSource extends TunerChannelSource implements Listene
         super(producerSourceEventListener, tunerChannel);
 
         int decimation = (int)(sampleRate / channelSpecification.getMinimumSampleRate());
+        LoggerFactory.getLogger(getClass()).info("Creating new CIC Tuner Channel Source for freq {}. Tuner sample rate is {}, minimum channel sample rate is {}, decimation factor is {}", tunerChannel.getFrequency(), sampleRate, channelSpecification.getMinimumSampleRate(), decimation);
 
         mDecimationFilter = new ComplexPrimeCICDecimate(sampleRate, decimation, channelSpecification.getPassFrequency(),
             channelSpecification.getStopFrequency());

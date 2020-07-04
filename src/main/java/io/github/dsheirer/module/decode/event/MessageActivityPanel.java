@@ -74,29 +74,26 @@ public class MessageActivityPanel extends JPanel implements Listener<ProcessingC
     @Override
     public void receive(ProcessingChain processingChain)
     {
-        EventQueue.invokeLater(new Runnable()
+        EventQueue.invokeLater(() ->
         {
-            @Override
-            public void run()
+            //Remove the existing table column width monitor and replace after swapping the table model
+            mTableColumnWidthMonitor.dispose();
+            mTable.setModel(processingChain != null ? processingChain.getMessageActivityModel() : EMPTY_MODEL);
+
+            mTable.getColumnModel().getColumn(0).setPreferredWidth(18);
+            mTable.getColumnModel().getColumn(1).setPreferredWidth(15);
+            mTable.getColumnModel().getColumn(2).setPreferredWidth(10);
+            mTable.getColumnModel().getColumn(3).setPreferredWidth(600);
+
+            if(processingChain != null)
             {
-                //Remove the existing table column width monitor and replace after swapping the table model
-                mTableColumnWidthMonitor.dispose();
-                mTable.setModel(processingChain != null ? processingChain.getMessageActivityModel() : EMPTY_MODEL);
-
-                mTable.getColumnModel().getColumn(0).setPreferredWidth(18);
-                mTable.getColumnModel().getColumn(1).setPreferredWidth(15);
-                mTable.getColumnModel().getColumn(2).setPreferredWidth(600);
-
-                if(processingChain != null)
-                {
-                    mManagementPanel.enableButtons();
-                }
-                else
-                {
-                    mManagementPanel.disableButtons();
-                }
-                mTableColumnWidthMonitor = new JTableColumnWidthMonitor(mUserPreferences, mTable, TABLE_PREFERENCE_KEY);
+                mManagementPanel.enableButtons();
             }
+            else
+            {
+                mManagementPanel.disableButtons();
+            }
+            mTableColumnWidthMonitor = new JTableColumnWidthMonitor(mUserPreferences, mTable, TABLE_PREFERENCE_KEY);
         });
     }
 

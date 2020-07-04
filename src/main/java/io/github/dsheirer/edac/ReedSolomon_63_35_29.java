@@ -22,7 +22,7 @@
 
 package io.github.dsheirer.edac;
 
-public class ReedSolomon_63_35_29 extends BerlekempMassey_63
+public class ReedSolomon_63_35_29 extends BerlekampMassey_63
 {
     /**
      * Reed-Solomon RS(63,35,29) decoder.  This can also be used for error detection and correction of the following

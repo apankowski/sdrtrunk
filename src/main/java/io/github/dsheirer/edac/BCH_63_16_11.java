@@ -22,7 +22,7 @@ import org.slf4j.LoggerFactory;
  *     along with this program.  If not, see <http://www.gnu.org/licenses/>
  ******************************************************************************/
 
-public class BCH_63_16_11 extends BerlekempMassey_63
+public class BCH_63_16_11 extends BerlekampMassey_63
 {
 	private final static Logger mLog = LoggerFactory.getLogger( BCH_63_16_11.class );
 
