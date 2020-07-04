@@ -68,6 +68,8 @@ public class ChannelConfigurationEditorFactory
                 return new P25P1ConfigurationEditor(playlistManager, userPreferences);
             case P25_PHASE2:
                 return new P25P2ConfigurationEditor(playlistManager, userPreferences);
+            case EDACS48:
+                return new EDACS48ConfigurationEditor(playlistManager, userPreferences);
             default:
                 if(decoderType != null && !mLoggedUnrecognizedTypes.contains(decoderType))
                 {

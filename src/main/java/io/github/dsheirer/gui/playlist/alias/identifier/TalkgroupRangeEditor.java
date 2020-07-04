@@ -308,6 +308,10 @@ public class TalkgroupRangeEditor extends IdentifierEditor<TalkgroupRange>
             new IntegerFormatter(0,0xFFFF), "Format: 0 - 65535"));
         details.add(new TalkgroupDetail(Protocol.PASSPORT, IntegerFormat.HEXADECIMAL, new HexFormatter(0,0xFFFF),
             new HexFormatter(0,0xFFFF), "Format: 0 - FFFF"));
+        details.add(new TalkgroupDetail(Protocol.EDACS, IntegerFormat.DECIMAL, new IntegerFormatter(0, 0x7FF),
+            new IntegerFormatter(0, 0x7FF), "Format: 0 - 2047"));
+        details.add(new TalkgroupDetail(Protocol.EDACS, IntegerFormat.HEXADECIMAL, new HexFormatter(0, 0x7FF),
+            new HexFormatter(0, 0x7FF), "Format: 0 - 7FF"));
         details.add(new TalkgroupDetail(Protocol.UNKNOWN, IntegerFormat.DECIMAL, new IntegerFormatter(0,16777215),
             new IntegerFormatter(0,16777215), "Format: 0 - FFFFFF"));
         details.add(new TalkgroupDetail(Protocol.UNKNOWN, IntegerFormat.FORMATTED, new IntegerFormatter(0,16777215),

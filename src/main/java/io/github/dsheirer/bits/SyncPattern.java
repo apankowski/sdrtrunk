@@ -170,6 +170,16 @@ public enum SyncPattern
 		true,false,false,false,
 		true,true,true,false,
 		true,true,true,false
+	}),
+
+	EDACS_CONTROL(new boolean[] {
+		false, true, false, true, false, true, false, true,   //
+		false, true, false, true, false, true, false, true,   //
+		false, true, false, true,                             // 0x55555 dotting
+		false, true, true, true,                              //
+		false, false, false, true, false, false, true, false, // 0x712 barker
+		false, true, false, true, false, true, false, true,   //
+		false, true, false, true, false, true, false, true,   // 0x5555 dotting
 	});
 	
 	boolean[] mBits;

@@ -44,6 +44,12 @@ import io.github.dsheirer.module.decode.dmr.DMRDecoderState;
 import io.github.dsheirer.module.decode.dmr.DMRTrafficChannelManager;
 import io.github.dsheirer.module.decode.dmr.DecodeConfigDMR;
 import io.github.dsheirer.module.decode.dmr.message.voice.DMRAudioModule;
+import io.github.dsheirer.module.decode.edacs48.DecodeConfigEDACS48;
+import io.github.dsheirer.module.decode.edacs48.EDACSDecoderModule;
+import io.github.dsheirer.module.decode.edacs48.EDACSDecoderState;
+import io.github.dsheirer.module.decode.edacs48.EDACSMessageFilter;
+import io.github.dsheirer.module.decode.edacs48.EDACSTrafficChannelManager;
+import io.github.dsheirer.module.decode.edacs48.WorkingChannelDecoder;
 import io.github.dsheirer.module.decode.fleetsync2.Fleetsync2Decoder;
 import io.github.dsheirer.module.decode.fleetsync2.Fleetsync2DecoderState;
 import io.github.dsheirer.module.decode.fleetsync2.FleetsyncMessageFilter;
@@ -173,6 +179,9 @@ public class DecoderFactory
                 break;
             case P25_PHASE2:
                 processP25Phase2(channel, userPreferences, modules, aliasList);
+                break;
+            case EDACS48:
+                processEDACS48(modules, channelMapModel, channel, aliasList, (DecodeConfigEDACS48) decodeConfig);
                 break;
             default:
                 throw new IllegalArgumentException("Unknown decoder type [" + decodeConfig.getDecoderType().toString() + "]");
@@ -390,6 +399,47 @@ public class DecoderFactory
         }
     }
 
+    private static void processEDACS48(List<Module> modules, ChannelMapModel channelMapModel,
+        Channel channel, AliasList aliasList, DecodeConfigEDACS48 decodeConfig) {
+
+        final var channelType = channel.getChannelType();
+        final var bitRate = 4_800;
+
+        // TODO: Make call timeout in millis for greater precision?
+        final var callTimeoutMillis = decodeConfig.getCallTimeoutSeconds() * 1000;
+
+        if (channelType == ChannelType.STANDARD) {
+            final var sourceType = channel.getSourceConfiguration().getSourceType();
+            if (sourceType == SourceType.TUNER) {
+                final var channelSpec = decodeConfig.getChannelSpecification();
+                modules.add(new EDACSDecoderModule(channelSpec.getBandwidth(), bitRate));
+            }
+
+            final var channelMap = channelMapModel.getChannelMap(decodeConfig.getChannelMapName());
+
+            final var trafficChannelManager = new EDACSTrafficChannelManager(channel, callTimeoutMillis);
+            modules.add(trafficChannelManager);
+            modules.add(new EDACSDecoderState(channelType, channelMap, trafficChannelManager));
+        }
+
+        if (channelType == ChannelType.TRAFFIC) {
+            final var sourceType = channel.getSourceConfiguration().getSourceType();
+            if (sourceType == SourceType.TUNER) {
+                final var channelSpec = decodeConfig.getChannelSpecification();
+                modules.add(new WorkingChannelDecoder(channelSpec.getBandwidth(), bitRate));
+                modules.add(new FMDemodulatorModule(8000.0, DEMODULATED_AUDIO_SAMPLE_RATE));
+            }
+
+            modules.add(new EDACSDecoderState(channelType, null, null));
+
+            // Set max segment audio sample length slightly above call timeout to
+            // not create a new segment if the processing chain finishes a bit after
+            // actual call timeout.
+            final var maxAudioSegmentLengthMillis = callTimeoutMillis + 5000;
+            modules.add(new AudioModule(aliasList, 0, maxAudioSegmentLengthMillis));
+        }
+    }
+
     /**
      * Constructs a list of auxiliary decoders, as specified in the configuration
      *
@@ -493,6 +543,9 @@ public class DecoderFactory
             case DMR:
                 //filters.add(new DMR) //todo: not finished
                 break;
+            case EDACS48:
+                filters.add(new EDACSMessageFilter());
+                break;
             default:
                 break;
         }
@@ -529,6 +582,8 @@ public class DecoderFactory
                 return new DecodeConfigP25Phase1();
             case P25_PHASE2:
                 return new DecodeConfigP25Phase2();
+            case EDACS48:
+                return new DecodeConfigEDACS48();
             default:
                 throw new IllegalArgumentException("DecodeConfigFactory - unknown decoder type [" + decoder.toString() + "]");
         }
@@ -592,6 +647,14 @@ public class DecoderFactory
                     return copyP25P2;
                 case PASSPORT:
                     return new DecodeConfigPassport();
+                case EDACS48: {
+                    final var original = (DecodeConfigEDACS48) config;
+                    final var copy = new DecodeConfigEDACS48();
+                    copy.setChannelMapName(original.getChannelMapName());
+                    copy.setCallTimeoutSeconds(original.getCallTimeoutSeconds());
+                    copy.setTrafficChannelPoolSize(original.getTrafficChannelPoolSize());
+                    return copy;
+                }
                 default:
                     throw new IllegalArgumentException("Unrecognized decoder configuration type:" + config.getDecoderType());
             }

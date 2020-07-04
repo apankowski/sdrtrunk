@@ -43,7 +43,6 @@ public class MessageActivityModel extends AbstractTableModel implements Listener
 
     protected int mMaxMessages = 500;
     protected LinkedList<MessageItem> mMessageItems = new LinkedList<>();
-    protected int[] mColumnWidths = {20, 20, 500};
     protected String[] mHeaders = new String[]{"Time", "Protocol", "Timeslot", "Message"};
 
     private SimpleDateFormat mSDFTime = new SimpleDateFormat("yyyy:MM:dd HH:mm:ss");
@@ -96,23 +95,6 @@ public class MessageActivityModel extends AbstractTableModel implements Listener
     public void dispose()
     {
         mMessageItems.clear();
-    }
-
-    public int[] getColumnWidths()
-    {
-        return mColumnWidths;
-    }
-
-    public void setColumnWidths(int[] widths)
-    {
-        if(widths.length != 3)
-        {
-            throw new IllegalArgumentException("MessageActivityModel - column widths array should have 3 elements");
-        }
-        else
-        {
-            mColumnWidths = widths;
-        }
     }
 
     public int getMaxMessageCount()

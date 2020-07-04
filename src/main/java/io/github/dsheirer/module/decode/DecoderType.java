@@ -40,6 +40,7 @@ public enum DecoderType
     PASSPORT("Passport", "Passport", Protocol.PASSPORT),
     P25_PHASE1("P25 Phase 1", "P25-1", Protocol.APCO25),
     P25_PHASE2("P25 Phase 2", "P25-2", Protocol.APCO25_PHASE2),
+    EDACS48("EDACS Narrowband", "EDACS48", Protocol.EDACS),
 
     //Auxiliary Decoders
     FLEETSYNC2("Fleetsync II", "Fleetsync2", Protocol.FLEETSYNC),
@@ -70,7 +71,8 @@ public enum DecoderType
         DecoderType.NBFM,
         DecoderType.P25_PHASE1,
         DecoderType.P25_PHASE2,
-        DecoderType.PASSPORT);
+        DecoderType.PASSPORT,
+        DecoderType.EDACS48);
 
     /**
      * Auxiliary decoders that operate on in-band signalling in the decoded audio channel
@@ -85,7 +87,7 @@ public enum DecoderType
      * Decoders that produce a (recordable) bitstream
      */
     public static final EnumSet<DecoderType> BITSTREAM_DECODERS = EnumSet.of(DecoderType.DMR,
-        DecoderType.MPT1327, DecoderType.P25_PHASE1, DecoderType.P25_PHASE2);
+        DecoderType.MPT1327, DecoderType.P25_PHASE1, DecoderType.P25_PHASE2, DecoderType.EDACS48);
 
     /**
      * Decoders that produce (recordable) MBE audio codec frames

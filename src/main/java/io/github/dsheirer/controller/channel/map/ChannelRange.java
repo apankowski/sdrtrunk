@@ -49,7 +49,7 @@ public class ChannelRange
     public ChannelRange()
     {
         //Bind valid to first channel is less than last channel
-        mValid.bind(Bindings.lessThan(mFirstChannel, mLastChannel));
+        mValid.bind(Bindings.lessThanOrEqual(mFirstChannel, mLastChannel));
     }
 
     public ChannelRange(int first, int last, int base, int sizeProperty)

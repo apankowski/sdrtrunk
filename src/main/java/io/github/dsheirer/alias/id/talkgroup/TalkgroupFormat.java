@@ -48,6 +48,8 @@ public enum TalkgroupFormat
         "<html>MPT-1327 valid ranges are 0-127(prefix)<br>and 1-8192(ident) (ie. 000-0001 to 127-8192)"),
     PASSPORT("*****", 1, 0xFFFF, "1 to 65,535",
         "Passport valid value range is 1-65,535"),
+    EDACS("****", 0, 0x7FF, "0 to 2,047",
+        "EDACS valid talkgroup range is 0-2,047"),
     UNKNOWN("********", 1, 0xFFFFFF, "1 to 16,777,215",
         "Unknown protocol valid value range is 1-16,777,215");
 
@@ -133,6 +135,8 @@ public enum TalkgroupFormat
                 return MPT1327;
             case PASSPORT:
                 return PASSPORT;
+            case EDACS:
+                return EDACS;
             default:
                 return UNKNOWN;
         }

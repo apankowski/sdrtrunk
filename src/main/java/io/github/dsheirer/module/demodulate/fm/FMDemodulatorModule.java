@@ -145,11 +145,11 @@ public class FMDemodulatorModule extends Module implements ISourceEventListener,
 
                 double sampleRate = sourceEvent.getValue().doubleValue();
 
-                if((sampleRate < (2.0 * mChannelBandwidth)))
+                if(sampleRate < (2.0 * mChannelBandwidth))
                 {
                     throw new IllegalStateException("FM Demodulator with channel bandwidth [" + mChannelBandwidth +
-                        "] requires a channel sample rate of [" + (2.0 * mChannelBandwidth + "] - sample rate of [" +
-                        sampleRate + "] is not supported"));
+                        "] requires a channel sample rate of [" + (2.0 * mChannelBandwidth) + "] - sample rate of [" +
+                        sampleRate + "] is not supported");
                 }
 
                 double cutoff = sampleRate / 4.0;
@@ -189,21 +189,17 @@ public class FMDemodulatorModule extends Module implements ISourceEventListener,
 
                 mIQFilter = new ComplexFIRFilter2(filterTaps);
 
-                mResampler = new RealResampler(sampleRate, mOutputSampleRate, 2000, 1000);
+                mLog.info("Creating resampler from sample rate {} to sample rate {}", sampleRate, mOutputSampleRate);
+                mResampler = new RealResampler(sampleRate, mOutputSampleRate, 4000, 2000);
 
-                mResampler.setListener(new Listener<ReusableFloatBuffer>()
-                {
-                    @Override
-                    public void receive(ReusableFloatBuffer reusableFloatBuffer)
+                mResampler.setListener(reusableFloatBuffer -> {
+                    if(mResampledReusableBufferListener != null)
                     {
-                        if(mResampledReusableBufferListener != null)
-                        {
-                            mResampledReusableBufferListener.receive(reusableFloatBuffer);
-                        }
-                        else
-                        {
-                            reusableFloatBuffer.decrementUserCount();
-                        }
+                        mResampledReusableBufferListener.receive(reusableFloatBuffer);
+                    }
+                    else
+                    {
+                        reusableFloatBuffer.decrementUserCount();
                     }
                 });
             }

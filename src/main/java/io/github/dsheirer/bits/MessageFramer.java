@@ -43,7 +43,6 @@ public class MessageFramer implements IBinarySymbolProcessor, Listener<Boolean>,
     private ISyncDetectListener mSyncDetectListener;
     private Broadcaster<CorrectedBinaryMessage> mBroadcaster = new Broadcaster<>();
     private List<MessageAssembler> mMessageAssemblers = new ArrayList<>();
-    private List<MessageAssembler> mCompletedMessageAssemblers = new ArrayList<>();
     private SyncPatternMatcher mMatcher;
 
     public MessageFramer(boolean[] syncPattern, int messageLength)
@@ -66,7 +65,6 @@ public class MessageFramer implements IBinarySymbolProcessor, Listener<Boolean>,
     public void dispose()
     {
         mBroadcaster.dispose();
-        mCompletedMessageAssemblers.clear();
     }
 
     public void process(boolean bit)
